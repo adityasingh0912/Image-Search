@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # Import the core logic functions from test4.py
 # Make sure test4.py is in the same directory
 try:
-    from test5 import generate_caption, create_json_from_caption, search_similar_products
+    from test6 import generate_caption, create_json_from_caption, search_similar_products
 except ImportError:
     print("Error: Could not import functions from test4.py. Make sure it exists in the same directory.")
     # Optionally exit or raise a more specific error

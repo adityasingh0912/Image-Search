@@ -8,41 +8,27 @@ import time
 from groq import Groq
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-# Crucial for this script to access API keys when run directly or imported
+# --- [Load environment variables, Initialize Groq, API Setup, Constants - SAME AS BEFORE] ---
 load_dotenv()
-
-# Initialize Groq client
-# Ensure GROQ_API_KEY is set in your .env file
 groq_api_key = os.getenv("GROQ_API_KEY")
 if not groq_api_key:
-    print("Error: GROQ_API_KEY not found in environment variables.")
-    # Consider exiting or raising an error if used as a standalone script
-    # exit(1)
-# Initialize only if the key exists
+    print("Error: GROQ_API_KEY not found.")
 groq_client = Groq(api_key=groq_api_key) if groq_api_key else None
 
-# Brilliance Hub API Setup
-# Ensure these are set in your .env file
 API_URL = os.getenv("API_URL")
 API_APP = os.getenv("API_APP")
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
-
-# Check if essential API config is missing
 if not all([API_URL, API_APP, API_KEY, API_SECRET]):
-    print("Error: Brilliance Hub API configuration (API_URL, API_APP, API_KEY, API_SECRET) missing in environment variables.")
-    # Consider exiting or raising an error
-    # exit(1)
-
+    print("Error: Brilliance Hub API configuration missing.")
 HEADERS = {
     "x-api-app": API_APP,
     "x-api-key": API_KEY,
     "x-api-secret": API_SECRET,
     "Content-Type": "application/json"
-}
+} if all([API_APP, API_KEY, API_SECRET]) else {} # Ensure headers are valid
 
-# --- Constants (Copied from your previous version) ---
+# --- [Constants - STYLES_MAP, number_words, jewelry_types, ALL_CATEGORIES - SAME AS BEFORE] ---
 STYLES_MAP = {
     "vintage": "Vintage", "modern": "Modern", "classic": "Classic", "bohemian": "Bohemian",
     "minimalist": "Minimalist", "romantic": "Romantic", "art deco": "Art Deco",
@@ -55,27 +41,20 @@ STYLES_MAP = {
     "infinity": "Infinity", "knot": "Knot", "star": "Star", "moon": "Moon", "cross": "Cross",
     "tree of life": "Tree of Life"
 }
-
 number_words = {
     "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
     "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10"
 }
-
 jewelry_types = {
-    "Rings": ["ring", "band"],
-    "Earrings": ["earring", "stud", "hoop", "dangle"],
-    "Pendants": ["pendant", "charm"],
-    "Bracelets": ["bracelet", "bangle", "cuff"],
-    "Necklaces": ["necklace", "chain", "collar"],
-    "Charms": ["charm"]
+    "Rings": ["ring", "band"], "Earrings": ["earring", "stud", "hoop", "dangle"],
+    "Pendants": ["pendant", "charm"], "Bracelets": ["bracelet", "bangle", "cuff"],
+    "Necklaces": ["necklace", "chain", "collar"], "Charms": ["charm"]
 }
-
 ALL_CATEGORIES = list(set(STYLES_MAP.values()))
 # --- End Constants ---
 
 
-# --- Core Functions ---
-
+# --- [Core Functions: image_to_base64, generate_caption, create_json_from_caption - SAME AS BEFORE] ---
 def image_to_base64(image_url):
     """Download an image and convert it to base64."""
     try:
@@ -105,8 +84,9 @@ def generate_caption(image_url):
     Avoid using the word 'jewelry' if it is a wearable item."""
 
     try:
+        # Ensure the model name is correct and available
         response = groq_client.chat.completions.create(
-            model="llama-3.2-90b-vision-preview", # Use a valid vision model
+            model="llama-3.1-70b-versatile", # Or another suitable vision model if available like llama-3.2-90b-vision-preview
             messages=[
                 {"role": "user", "content": [
                     {"type": "text", "text": prompt},
@@ -123,12 +103,9 @@ def generate_caption(image_url):
 
     except Exception as e:
         print(f"Error in LLaMA vision request: {e}")
-        # Attempt to handle potential rate limits or temporary errors
         if "rate limit" in str(e).lower():
              print("Rate limit likely exceeded. Waiting before retry...")
-             # time.sleep(5) # Optional: wait before failing
         return None
-
 
 def create_json_from_caption(caption):
     """Use Groq's LLaMA to convert a jewelry caption into a JSON object, extracting only required info."""
@@ -157,20 +134,18 @@ Caption: "{caption}"
 """
 
     try:
-        # Use a current, suitable text model and request JSON output
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # Verify this model is available and suitable
+            model="llama-3.1-70b-versatile", # Use a suitable text model
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
-            temperature=0.1,  # Low temperature for structured output
-            response_format={"type": "json_object"} # Request JSON output directly
+            temperature=0.1,
+            response_format={"type": "json_object"}
         )
         llm_output = response.choices[0].message.content.strip()
 
         print("Raw LLM Output (should be JSON):")
         print(llm_output)
 
-        # Directly parse the JSON output
         json_data = json.loads(llm_output)
         print("Parsed JSON data:", json_data)
         return json_data
@@ -178,39 +153,80 @@ Caption: "{caption}"
     except json.JSONDecodeError as e:
         print(f"JSON Decode Error: {e}")
         print(f"Problematic LLM Output: {llm_output}")
-        # Fallback: Try to extract JSON from markdown if direct JSON fails (less likely now)
-        match = re.search(r'```json\s*([\s\S]*?)\s*```', llm_output, re.IGNORECASE)
-        if match:
-            try:
-                json_data = json.loads(match.group(1).strip())
-                print("Parsed JSON data (fallback from markdown):", json_data)
-                return json_data
-            except json.JSONDecodeError as fallback_e:
-                print(f"Fallback JSON Decode Error: {fallback_e}")
-                return None
+        # Add fallback logic if needed, although response_format should prevent it
         return None
     except Exception as e:
         print(f"Error in LLaMA JSON creation request: {e}")
         return None
+
+
+# --- NEW FUNCTION ---
+def get_additional_keywords_with_llm(caption, used_keywords_set):
+    """Use LLM to suggest 1-2 additional keywords from caption, excluding used ones."""
+    if not groq_client:
+        print("Error: Groq client not initialized for additional keyword extraction.")
+        return ""
+
+    print("  Attempting AI suggestion for Pass 3 keywords...")
+    # Convert set to a readable list for the prompt
+    used_keywords_list = ", ".join(filter(None, used_keywords_set)) # Filter out potential None or empty strings
+
+    prompt = f"""
+Analyze the following jewelry caption:
+"{caption}"
+
+The following keywords have already been used for searching or are considered primary identifiers:
+[{used_keywords_list}]
+
+Identify exactly one or two *additional* descriptive words from the caption that are NOT in the list above and are NOT generic filler words (like 'a', 'the', 'is', 'with', 'set', 'image', 'background', 'features', 'center', 'shaped'). Focus on words describing specific visual details, patterns, or secondary elements of the jewelry itself.
+
+Return ONLY the identified keyword(s) as a single lowercase string (if two words, separate them with a space), or return an empty string if no suitable additional keywords are found. Do not add any explanation.
+
+Examples:
+- Caption: "A gold butterfly pendant with small pave diamonds on the wings." Used: [gold, pendant, butterfly, diamond]. Output: pave wings
+- Caption: "Silver ring with an engraved floral pattern." Used: [silver, ring, pattern, ]. Output: "floral"
+- Caption: "Rose gold necklace with a dangling pearl." Used: [rose gold, necklace, pearl]. Output: pearl
+- Caption: "A sterling silver pendant with a heart- shaped embedded with word Mama." Used: [sterling silver, pendant, heart]. Output: mama
+- Caption: "This image features a silver heart-shaped pendant with a diamond at its center, set against a white background." Used: [silver, heart]. Output: diamond
+"""
+
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant", # Use a fast model for this refinement task
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=30, # Expect short output
+            temperature=0.1,
+            stop=["\n"] # Stop generation early if needed
+        )
+        keywords = response.choices[0].message.content.strip().lower()
+
+        # Basic cleaning: remove potential quotes or extra formatting
+        keywords = keywords.replace('"', '').replace("'", "").strip()
+
+        print(f"  AI suggested keywords: '{keywords}'")
+        return keywords
+
+    except Exception as e:
+        print(f"  Error during AI keyword suggestion: {e}")
+        return "" # Return empty on error
+
 
 def search_similar_products(json_prompt, initial_caption):
     """Searches the Brilliance Hub API based on extracted JSON criteria."""
     if not json_prompt or not isinstance(json_prompt, dict):
         print("Invalid JSON prompt provided to search function.")
         return {"error": "Invalid search criteria generated.", "data": [], "total_found": 0, "source_pass": "N/A"}
-
-    # Check if API headers are properly configured
-    if not all(HEADERS.values()):
-         print("Error: API headers incomplete. Check .env configuration.")
+    if not HEADERS:
+         print("Error: API headers not configured.")
          return {"error": "API configuration error.", "data": [], "total_found": 0, "source_pass": "N/A"}
 
     jew_type = json_prompt.get("jewelry_type", "Pendants").lower()
-    design = json_prompt.get("design", "").lower().strip() # Ensure lowercase and stripped
-    material = json_prompt.get("material", "Metal").lower().strip() # Ensure lowercase and stripped
-    categories = [cat.lower().strip() for cat in json_prompt.get("categories", []) if cat] # Lowercase, strip, remove empty
+    design = json_prompt.get("design", "").lower().strip()
+    material = json_prompt.get("material", "Metal").lower().strip()
+    categories = [cat.lower().strip() for cat in json_prompt.get("categories", []) if cat]
 
-    limit = 50 # Keep limit reasonable for web requests
-    max_attempts = 1 # Limit API calls per pass for web requests
+    limit = 50
+    max_attempts = 1
     first_pass_results = []
     second_pass_results = []
     third_pass_results = []
@@ -219,154 +235,112 @@ def search_similar_products(json_prompt, initial_caption):
     print(f"\n--- Starting Search ---")
     print(f"Criteria: Type='{jew_type}', Design='{design}', Material='{material}', Categories={categories}")
 
-    # --- Search Pass Logic (Similar to app.py version) ---
-
-    # Pass 1: Material (Title) + Categories (Style) + Type (Type)
-    #------------------------------------------------------------
+    # --- Pass 1: Material (Title) + Categories (Style) + Type (Type) ---
+    # [SAME AS BEFORE - No changes needed here]
     search_style = [cat.capitalize() for cat in categories if cat]
-    first_pass_search_term = material.capitalize() if material else "Jewelry" # Basic term if material is generic/missing
+    first_pass_search_term = material.capitalize() if material else "Jewelry"
     print(f"\nPass 1: Title='{first_pass_search_term}', Style={search_style}, Type={jew_type.capitalize() if jew_type else 'Any'}")
     offset = 0
     api_error_pass1 = False
     while offset < max_attempts * limit:
         search_body = {
-            "offset": offset,
-            "limit": limit,
-            "title": first_pass_search_term,
-            "style": search_style
+            "offset": offset, "limit": limit, "title": first_pass_search_term, "style": search_style
         }
-        if jew_type and jew_type != 'any': # Only add type if specific
-            search_body["type"] = jew_type.capitalize()
-
+        if jew_type and jew_type != 'any': search_body["type"] = jew_type.capitalize()
         print(f"  API Request (Pass 1): {search_body}")
         try:
             response = requests.get(API_URL, headers=HEADERS, params=search_body, timeout=15)
             print(f"  API Response Status (Pass 1): {response.status_code}")
-            response.raise_for_status() # Check for HTTP errors
+            response.raise_for_status()
             results = response.json()
             current_batch = results.get("data", [])
             if current_batch:
                 first_pass_results.extend(current_batch)
                 print(f"  Found {len(current_batch)} items in this batch (Pass 1). Total: {len(first_pass_results)}")
-            else:
-                 print("  No more data found in this batch (Pass 1).")
-                 break # Stop if no data or empty data list
-
-            if len(current_batch) < limit:
-                 print("  Reached end of results for Pass 1 criteria.")
-                 break # Stop if fewer results than limit received
+            else: break
+            if len(current_batch) < limit: break
             offset += limit
         except requests.RequestException as e:
             print(f"  Error: First pass API search failed: {e}")
-            api_error_pass1 = True
-            break # Stop on API error for this pass
+            api_error_pass1 = True; break
         except Exception as e:
             print(f"  Error: Unexpected error during first pass search: {e}")
-            api_error_pass1 = True
-            break
-        # time.sleep(0.2) # Optional small delay
-
+            api_error_pass1 = True; break
     print(f"Total results from Pass 1: {len(first_pass_results)}")
-    if first_pass_results and not api_error_pass1:
-        last_successful_pass = "First Pass"
+    if first_pass_results and not api_error_pass1: last_successful_pass = "First Pass"
 
-    # Pass 2: Filter Pass 1 results by Design keyword in Title
-    #------------------------------------------------------------
+
+    # --- Pass 2: Filter Pass 1 results by Design keyword in Title ---
+    # [SAME AS BEFORE - No changes needed here]
     if design and first_pass_results:
         print(f"\nPass 2: Filtering {len(first_pass_results)} items by Design='{design}' in title")
-        # Refine common words list based on observations
         common_words_second_pass = {
             "shaped", "style", "design", "pattern", "feature", "pendant", "earring", "ring", "bracelet", "necklace",
              "small", "large", "big", "little", "tiny", "medium", "simple", "basic", "with", "and",
              "attached", "hanging", "placed", "shown", "metal", "colored", "silver", "gold", "white", "yellow", "rose"
         }
         design_words = design.split()
-        # Filter out common words and very short words (like single letters unless explicitly handled)
         cleaned_design_words = [word for word in design_words if word not in common_words_second_pass and len(word) > 1]
-
-        # Special handling for initials or numerals might be needed here if 'initial x' or 'numeral 3' is common in titles
-        # Example: if re.match(r'initial\s[a-z]', design): cleaned_design_words = [design] # Keep 'initial x' together
-
         second_pass_filter_term = " ".join(cleaned_design_words)
-
         print(f"  Cleaned filter term (Pass 2): '{second_pass_filter_term}'")
-        if second_pass_filter_term: # Only filter if we have a meaningful term
+        if second_pass_filter_term:
              second_pass_results = [
                  item for item in first_pass_results
                  if item.get("jew_title") and second_pass_filter_term in item["jew_title"].lower()
              ]
              print(f"  Results after Pass 2 filter: {len(second_pass_results)}")
-             if second_pass_results:
-                 last_successful_pass = "Second Pass"
-             else:
-                  print("  No items matched the design filter in Pass 2. Reverting to Pass 1 results.")
-                  second_pass_results = first_pass_results # Keep Pass 1 results if filter yields nothing
-                  # Don't update last_successful_pass here
+             if second_pass_results: last_successful_pass = "Second Pass"
+             else: second_pass_results = first_pass_results # Revert if filter yields nothing
         else:
              print("  Skipping Pass 2 filter as cleaned design term is empty.")
-             second_pass_results = first_pass_results # Pass all results if filter term is empty
-
+             second_pass_results = first_pass_results
     else:
-        # If no design keyword or no Pass 1 results, Pass 2 results are the same as Pass 1
         print("\nSkipping Pass 2 filter (No design keyword or no Pass 1 results).")
         second_pass_results = first_pass_results
 
 
-    # Pass 3: Filter Pass 2 results by *other* significant words from caption
-    #------------------------------------------------------------
+    # --- Pass 3: Filter Pass 2 results using AI-suggested keywords ---
+    # [MODIFIED SECTION]
     current_results_for_third_pass = second_pass_results # Start with results from previous stage
 
     if current_results_for_third_pass and initial_caption:
-        print(f"\nPass 3: Filtering {len(current_results_for_third_pass)} items by other keywords from caption")
-        caption_lower = initial_caption.lower()
-        # Keywords already used in search/filtering (don't reuse them)
+        print(f"\nPass 3: Filtering {len(current_results_for_third_pass)} items using AI suggested keywords from caption")
+
+        # Build the set of already used keywords for the AI prompt
         used_keywords = set([c.lower() for c in categories if c] +
                             [d.lower() for d in design.split() if d] +
                             [material.lower(), jew_type.lower()])
-
-        # More comprehensive common/stop words list
-        common_words = {
+        # Add common words to avoid the AI suggesting them if they slip through
+        common_words_for_ai = {
             "a", "an", "the", "this", "that", "these", "those", "and", "or", "but", "of", "with", "for", "on", "at","its"
             "to", "from", "by", "as", "it", "is", "are", "was", "were", "be", "been", "has", "have", "had","no",
             "in", "out", "up", "down", "over", "under", "above", "below", "image", "photo", "picture", "view",
             "background", "surface", "display", "close-up", "shot", "features", "featuring", "depicts","present"
             "shaped", "style", "design", "pattern", "piece", "item", "accessory", "jewelry", "wearable",
-            "made", "set", "against", "shown", "engraved", # Add words commonly used in descriptions
-             "color", "colored", # Generic color words
-            # Add material/type words again to ensure they are excluded if already used
+            "made", "set", "against", "shown", "engraved", "center", # Add words explicitly mentioned in AI prompt instructions
+             "color", "colored",
              "metal", "gold", "silver", "white", "yellow", "rose", "sterling",
-             "ring", "pendant", "earring", "necklace", "bracelet", "charm", "band", "stud", "hoop","center"
-        } | used_keywords # Combine common words with already used keywords
+             "ring", "pendant", "earring", "necklace", "bracelet", "charm", "band", "stud", "hoop"
+        }
+        full_exclusion_set = used_keywords.union(common_words_for_ai)
 
-        # Extract potential keywords from caption
-        words = re.findall(r'\b[a-z]{3,}\b', caption_lower) # Get lowercase words (3+ letters)
-        unexpected_keywords = []
+        # Call the AI function to get keywords
+        third_pass_filter_term = get_additional_keywords_with_llm(initial_caption, full_exclusion_set)
 
-        for word in words:
-            if word not in common_words:
-                unexpected_keywords.append(word)
-                # Limit to maybe 1-2 significant unexpected words found
-                if len(unexpected_keywords) >= 2:
-                    break
-
-        print(f"  Potential unexpected keywords found: {unexpected_keywords}")
-
-        if unexpected_keywords:
-            # Combine unexpected words for the filter term
-            third_pass_filter_term = " ".join(unexpected_keywords)
-            print(f"  Filter term (Pass 3): '{third_pass_filter_term}'")
+        if third_pass_filter_term: # Only filter if AI provided a term
+            print(f"  Using AI filter term (Pass 3): '{third_pass_filter_term}'")
             third_pass_results = [
                  item for item in current_results_for_third_pass
                  if item.get("jew_title") and third_pass_filter_term in item["jew_title"].lower()
              ]
-            print(f"  Results after Pass 3 filter: {len(third_pass_results)}")
+            print(f"  Results after Pass 3 AI filter: {len(third_pass_results)}")
             if third_pass_results:
                 last_successful_pass = "Third Pass"
             else:
-                print("  No items matched the unexpected words filter. Reverting to previous results.")
-                third_pass_results = current_results_for_third_pass # Keep previous results if filter yields nothing
+                print("  AI filter term yielded no matches. Reverting to previous results.")
+                third_pass_results = current_results_for_third_pass # Keep previous results
         else:
-            print("  No significant unexpected words found for Pass 3 filter.")
+            print("  AI did not suggest keywords, or suggestion was empty. Skipping Pass 3 filter.")
             third_pass_results = current_results_for_third_pass # No filtering applied
     else:
          print("\nSkipping Pass 3 filter (No previous results or no caption).")
@@ -374,13 +348,12 @@ def search_similar_products(json_prompt, initial_caption):
 
 
     # --- Final Results Selection ---
+    # [SAME AS BEFORE - No changes needed here]
     print("\n--- Final Search Summary ---")
     final_results_data = []
-    source_pass_name = "N/A" # Rename variable for clarity
-
-    # Prioritize results from the latest successful pass
+    source_pass_name = "N/A"
     if last_successful_pass == "Third Pass" and third_pass_results:
-        final_results_data = third_pass_results[:4] # Take top 4
+        final_results_data = third_pass_results[:4]
         source_pass_name = "Third Pass"
         print(f"Using results from Third Pass. Found {len(third_pass_results)}, returning top {len(final_results_data)}.")
     elif last_successful_pass == "Second Pass" and second_pass_results:
@@ -392,45 +365,32 @@ def search_similar_products(json_prompt, initial_caption):
         source_pass_name = "First Pass"
         print(f"Using results from First Pass. Found {len(first_pass_results)}, returning top {len(final_results_data)}.")
     else:
-        # If even Pass 1 failed or yielded no results initially
          if api_error_pass1:
              print("Search failed due to API error in the first pass.")
              return {"error": "Failed to retrieve initial search results from API.", "data": [], "total_found": 0, "source_pass": "N/A"}
          else:
              print("No similar products found across all search passes.")
-             # Return empty data but indicate search was attempted
              return {"data": [], "total_found": 0, "source_pass": "None"}
-
 
     print(f"Source of final results: {source_pass_name}")
     print(f"Number of items in final_results_data: {len(final_results_data)}")
 
     final_results = {
         "data": final_results_data,
-        "total_found": len(final_results_data), # Report the count of items *returned*
+        "total_found": len(final_results_data),
         "source_pass": source_pass_name,
-        # Optionally include intermediate counts for debugging:
-        # "debug_counts": {
-        #     "pass1": len(first_pass_results),
-        #     "pass2": len(second_pass_results) if 'second_pass_results' in locals() else 0,
-        #     "pass3": len(third_pass_results) if 'third_pass_results' in locals() else 0
-        # }
     }
-    # print(f"Final results structure: {json.dumps(final_results, indent=2)}")
     return final_results
 
-# --- Example Usage (Only runs when test4.py is executed directly) ---
+
+# --- [Example Usage (__main__ block) - SAME AS BEFORE] ---
 if __name__ == "__main__":
     print("Running test4.py directly...")
 
-    # Ensure client and API config are loaded before proceeding
-    if not groq_client or not all([API_URL, API_APP, API_KEY, API_SECRET]):
+    if not groq_client or not HEADERS:
          print("Exiting due to missing Groq client or API configuration.")
     else:
-        # Test Image URL
-        # image_url = "https://meteor.stullercloud.com/das/119159229?$xlarge$" # Heart Mama pendant
-        # image_url = "https://example.com/path/to/another/jewelry_image.jpg" # Replace with a valid URL
-        image_url = input("Enter image URL to test: ") # Make it interactive
+        image_url = input("Enter image URL to test: ")
 
         if image_url:
             print("\nStep 1: Generating Caption...")
@@ -442,6 +402,7 @@ if __name__ == "__main__":
 
                 if test_json:
                     print("\nStep 3: Searching for Similar Products...")
+                    # Pass the original caption to the search function
                     test_results = search_similar_products(test_json, test_caption)
 
                     print("\n--- Final Test Results ---")
