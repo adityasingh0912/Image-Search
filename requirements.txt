@@ -1,3 +1,7 @@
 requests
-huggingface-hub
 python-dotenv
+huggingface-hub
+Pillow
+groq
+torch
+transformers
