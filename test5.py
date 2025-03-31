@@ -326,16 +326,16 @@ def search_similar_products(json_prompt, initial_caption):
 
         # More comprehensive common/stop words list
         common_words = {
-            "a", "an", "the", "this", "that", "these", "those", "and", "or", "but", "of", "with", "for", "on", "at",
-            "to", "from", "by", "as", "it", "is", "are", "was", "were", "be", "been", "has", "have", "had",
+            "a", "an", "the", "this", "that", "these", "those", "and", "or", "but", "of", "with", "for", "on", "at","its"
+            "to", "from", "by", "as", "it", "is", "are", "was", "were", "be", "been", "has", "have", "had","no",
             "in", "out", "up", "down", "over", "under", "above", "below", "image", "photo", "picture", "view",
-            "background", "surface", "display", "close-up", "shot", "features", "featuring", "depicts",
+            "background", "surface", "display", "close-up", "shot", "features", "featuring", "depicts","present"
             "shaped", "style", "design", "pattern", "piece", "item", "accessory", "jewelry", "wearable",
             "made", "set", "against", "shown", "engraved", # Add words commonly used in descriptions
              "color", "colored", # Generic color words
             # Add material/type words again to ensure they are excluded if already used
-             "metal", "gold", "silver", "diamond", "white", "yellow", "rose", "sterling",
-             "ring", "pendant", "earring", "necklace", "bracelet", "charm", "band", "stud", "hoop"
+             "metal", "gold", "silver", "white", "yellow", "rose", "sterling",
+             "ring", "pendant", "earring", "necklace", "bracelet", "charm", "band", "stud", "hoop","center"
         } | used_keywords # Combine common words with already used keywords
 
         # Extract potential keywords from caption
@@ -346,7 +346,7 @@ def search_similar_products(json_prompt, initial_caption):
             if word not in common_words:
                 unexpected_keywords.append(word)
                 # Limit to maybe 1-2 significant unexpected words found
-                if len(unexpected_keywords) >= 2:
+                if len(unexpected_keywords) >= 1:
                     break
 
         print(f"  Potential unexpected keywords found: {unexpected_keywords}")
