@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>Jewelry Image Search</title>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Link to CSS file -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+<div class="container">
+    <!-- Header Section -->
+    <div class="header">
+        <div class="header-avatar">
+            <i class="fas fa-camera"></i> <!-- Camera Icon -->
+        </div>
+        <h1>Jewelry Image Search</h1>
+        <p class="subheading">Find similar jewelry from an image</p>
+    </div>
+
+    <!-- Chat Interface -->
+    <div class="chat-container">
+        <!-- Message Display Area -->
+        <div class="chat-messages" id="chatMessages">
+            <!-- Initial Bot Message -->
+            <div class="message bot-message">
+                <div class="avatar bot-avatar">
+                     <i class="fas fa-robot"></i> <!-- Robot Icon -->
+                </div>
+                <div class="bubble bot-bubble">
+                    <strong>JewelBot</strong>: Hello! Paste an image URL of jewelry below, and I'll try to find similar items.
+                </div>
+            </div>
+            <!-- Chat messages will be added here by JavaScript -->
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-container">
+            <input
+                type="text"
+                id="userInput"
+                placeholder="Paste image URL here (e.g., https://...)"
+                aria-label="Image URL Input"
+            />
+            <button class="send-button" id="sendButton" aria-label="Search Button">
+                <i class="fas fa-search"></i> <!-- Search Icon -->
+            </button>
+            <!-- Optional: Add an upload button here if needed -->
+            <!--
+            <button class="send-button upload-button" id="uploadButton" aria-label="Upload Image Button">
+                <i class="fas fa-upload"></i>
+            </button>
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+            -->
+        </div>
+    </div>
+
+    <!-- Search Results Status Bar -->
+    <div id="search-results-bar" class="search-results-bar" style="display: none;">
+        <!-- Status text will be added here by JavaScript -->
+    </div>
+
+</div> <!-- End of Container -->
+
+<!-- Modal for Detailed View -->
+<div id="detailsModal" class="modal">
+    <div class="modal-content">
+        <!-- Close Button for Modal -->
+        <span class="close-button" onclick="closeModal()" aria-label="Close Modal">×</span>
+        <!-- Modal Content Area -->
+        <div id="modalDetails">
+            <!-- Jewelry details will be loaded here by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Link to JavaScript file -->
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

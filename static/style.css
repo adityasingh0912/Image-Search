@@ -1,0 +1,601 @@
+/* Basic Resets */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+    min-height: 100vh;
+    padding: 20px;
+    font-size: 16px; /* Base font size */
+    color: #333; /* Default text color */
+  }
+
+  /* Container */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    padding: 20px;
+    text-align: center;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .header-avatar {
+    width: 70px; /* Slightly smaller */
+    height: 70px;
+    background: #fff;
+    border-radius: 50%;
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  .header-avatar i {
+    font-size: 35px; /* Adjust icon size */
+    color: #667eea;
+  }
+  .header h1 {
+    margin-bottom: 8px;
+    font-size: 22px; /* Adjust font size */
+    font-weight: 700;
+  }
+  .subheading {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  /* Chat Container */
+  .chat-container {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.06);
+    position: relative;
+    flex-grow: 1; /* Allow chat container to grow */
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-messages {
+    flex-grow: 1; /* Allow message area to take available space */
+    max-height: 50vh; /* Limit height, adjust as needed */
+    overflow-y: auto;
+    margin-bottom: 15px;
+    padding-right: 10px; /* Space for scrollbar */
+  }
+  /* Custom scrollbar for chat messages */
+  .chat-messages::-webkit-scrollbar {
+    width: 8px;
+  }
+  .chat-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  .chat-messages::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+  }
+  .chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+  }
+
+  .message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  .bot-message {
+    justify-content: flex-start;
+  }
+  .user-message {
+    justify-content: flex-end;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e9ecef; /* Avatar background */
+  }
+  .bot-avatar i {
+    font-size: 20px; /* Adjust icon size */
+    color: #667eea;
+  }
+  .user-avatar i {
+    font-size: 20px; /* Adjust icon size */
+    color: #764ba2;
+  }
+  .bubble {
+    border-radius: 10px;
+    padding: 12px 16px;
+    max-width: 85%; /* Slightly wider max width */
+    line-height: 1.5; /* Improved line spacing */
+    font-size: 14px;
+    word-wrap: break-word; /* Ensure long words break */
+    overflow-wrap: break-word;
+  }
+  .bot-bubble {
+    background: #fff;
+    border: 1px solid #eee;
+    color: #333;
+  }
+  /* Specific styling for bubbles containing cards */
+  .bot-bubble:has(.jewelry-cards-in-chat) {
+      background: transparent;
+      border: none;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+  }
+  .user-bubble {
+    background: #667eea;
+    color: #fff;
+    border: 1px solid #667eea;
+  }
+
+  /* Input Container */
+  .input-container {
+    display: flex;
+    gap: 10px;
+    margin-top: auto; /* Push to bottom if chat container has extra space */
+    padding-top: 10px; /* Space above input */
+    border-top: 1px solid #eee; /* Separator line */
+  }
+  .input-container input[type="text"] {
+    flex-grow: 1;
+    padding: 12px 16px;
+    border: 2px solid #eee;
+    border-radius: 25px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+  }
+  .input-container input[type="text"]:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+
+  /* Send Button (and potential Upload Button) Styling */
+  .send-button {
+    background: #667eea;
+    color: #fff;
+    border: none;
+    width: 48px; /* Slightly larger */
+    height: 48px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Prevent shrinking */
+    transition: transform 0.2s, background 0.3s;
+  }
+  .send-button:hover {
+    background: #5a6fd8; /* Darker hover */
+    transform: scale(1.05);
+  }
+  /* Optional: Style for upload button if added */
+  .upload-button {
+    background-color: #764ba2; /* Different color */
+  }
+  .upload-button:hover {
+     background-color: #663a82;
+  }
+
+  /* Search Results Bar */
+  .search-results-bar {
+    background: #e9ecef; /* Lighter background */
+    border: 1px solid #dee2e6;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px; /* Smaller text */
+    color: #495057; /* Darker text */
+    margin: 15px 0; /* Adjusted margin */
+    text-align: center;
+    display: none; /* Initially hidden - JS will show it */
+  }
+
+  /* Modal - General Styling */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6); /* Slightly darker overlay */
+    display: none; /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px; /* Padding around modal content */
+  }
+
+  .modal-content {
+    background: #fff;
+    width: 90%;
+    max-width: 800px; /* Max width for jewelry modal */
+    max-height: 90vh; /* Limit height */
+    overflow-y: auto; /* Allow scrolling */
+    border-radius: 15px; /* More rounded */
+    padding: 25px 30px; /* More padding */
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  /* Custom scrollbar for modal */
+  .modal-content::-webkit-scrollbar {
+    width: 8px;
+  }
+  .modal-content::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 10px;
+  }
+  .modal-content::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+  }
+  .modal-content::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+  }
+
+  .close-button {
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    font-size: 28px; /* Larger close icon */
+    cursor: pointer;
+    color: #888; /* Grey color */
+    font-weight: bold;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+  .close-button:hover {
+      color: #333; /* Darker on hover */
+  }
+
+  /* Modal Content specific to Jewelry */
+  .modal-content h2 {
+      margin-bottom: 20px; /* More space below title */
+      text-align: center;
+      color: #333;
+      font-size: 20px; /* Adjust title size */
+      font-weight: 600;
+  }
+
+  .modal-layout {
+      display: flex;
+      flex-direction: column; /* Default to single column */
+      gap: 20px;
+      margin-top: 15px;
+  }
+
+  /* Sections within the modal */
+  .modal-image-section, .modal-details-section, .modal-video-column {
+      width: 100%;
+  }
+
+  .jewelry-modal-image-main {
+      display: block;
+      max-width: 100%; /* Ensure image fits */
+      width: auto; /* Maintain aspect ratio */
+      max-height: 40vh; /* Limit height */
+      margin: 0 auto 15px auto; /* Center horizontally */
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      object-fit: contain; /* Show full image */
+      background-color: #f8f9fa; /* Background for transparency */
+  }
+
+  /* Optional Thumbnail styling */
+  .modal-thumbnails {
+      text-align: center;
+      margin-top: 10px;
+  }
+  .modal-thumbnails .thumbnail {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin: 0 5px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.2s, border-color 0.2s;
+  }
+  .modal-thumbnails .thumbnail:hover {
+      opacity: 1;
+      border-color: #aaa;
+  }
+
+  /* Specs Grid (reusing class name) */
+  .diamond-specs-grid {
+     display: grid;
+     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Responsive columns */
+     gap: 10px; /* Space between items */
+     margin-top: 15px;
+     padding: 15px 0; /* Padding */
+     border-top: 1px solid #eee;
+  }
+   .diamond-specs-grid p {
+       font-size: 14px;
+       padding: 4px 0; /* Spacing */
+       margin: 0;
+       color: #555; /* Text color */
+   }
+   .diamond-specs-grid strong {
+       margin-left: 5px;
+       color: #333;
+       font-weight: 600; /* Slightly bolder */
+   }
+
+  /* Jewelry Description Styling */
+  .jewelry-modal-desc {
+      margin-top: 15px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #555;
+      max-height: 200px; /* Allow more height */
+      overflow-y: auto;
+      padding: 15px; /* Padding inside description */
+      border: 1px solid #eee; /* Border around description */
+      border-radius: 8px;
+      background-color: #fdfdfd; /* Slightly off-white background */
+  }
+  /* Style for lists inside description */
+  .jewelry-modal-desc ol, .jewelry-modal-desc ul {
+      padding-left: 25px; /* More indentation */
+      margin-top: 8px;
+      margin-bottom: 8px;
+  }
+  .jewelry-modal-desc li {
+      margin-bottom: 5px;
+  }
+  .jewelry-modal-desc strong { /* Style bold text within desc */
+      font-weight: 600;
+      color: #444;
+  }
+
+  /* Jewelry Video Styling */
+  .jewelry-modal-video-container {
+      width: 100%;
+      padding-bottom: 56.25%; /* 16:9 aspect ratio */
+      position: relative;
+      margin-top: 20px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border: 1px solid #eee; /* Subtle border */
+  }
+  .jewelry-modal-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+  }
+
+  /* Jewelry Cards in Chat */
+  .jewelry-cards-in-chat {
+    display: grid;
+    /* Responsive grid: more columns on larger screens */
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 10px 0;
+    width: 100%;
+  }
+  .jewelry-card-in-chat {
+    background: #fff;
+    border-radius: 10px; /* More rounded */
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08); /* Softer shadow */
+    padding: 15px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+    overflow: hidden; /* Hide overflow */
+  }
+  .jewelry-card-in-chat:hover {
+    box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+    transform: translateY(-3px); /* Slight lift on hover */
+  }
+
+  /* Image within the card */
+  .jewelry-card-image {
+    width: calc(100% + 30px); /* Extend to edges */
+    margin: -15px -15px 10px -15px; /* Position at top */
+    height: 160px; /* Fixed height */
+    object-fit: cover; /* Cover the area */
+    border-bottom: 1px solid #eee; /* Separator line */
+  }
+
+  .jewelry-card-in-chat .jewelry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Align top */
+    margin-bottom: 8px;
+    min-height: 45px; /* Ensure space for multi-line titles */
+  }
+  .jewelry-card-in-chat .jewelry-title {
+    font-weight: 600;
+    color: #444;
+    font-size: 14px;
+    line-height: 1.4; /* Allow wrapping */
+    flex-grow: 1;
+    margin-right: 10px; /* More space before price */
+    /* Limit title to 2 lines with ellipsis */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .jewelry-card-in-chat .jewelry-price {
+    font-weight: 700;
+    color: #667eea;
+    font-size: 15px;
+    white-space: nowrap;
+    margin-left: auto; /* Push price to the right */
+  }
+
+  .jewelry-card-in-chat .view-details-btn {
+    background: #667eea;
+    color: #fff;
+    border: none;
+    padding: 9px 15px; /* Adjusted padding */
+    border-radius: 6px; /* Rounded button */
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500; /* Medium weight */
+    margin-top: 12px; /* Space above button */
+    align-self: stretch; /* Button fills width */
+    text-align: center;
+    transition: background-color 0.2s ease;
+  }
+  .jewelry-card-in-chat .view-details-btn:hover {
+    background-color: #5a6fd8;
+  }
+
+
+  /* Responsive Adjustments */
+  @media (max-width: 992px) {
+    .jewelry-cards-in-chat {
+       /* Adjust columns for tablets */
+       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .chat-messages {
+        max-height: 60vh; /* More height on tablets */
+    }
+    .modal-content {
+        max-width: 700px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    body {
+        padding: 10px; /* Less padding on mobile */
+    }
+    .container {
+        padding: 15px;
+    }
+    .header {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .header-avatar {
+        width: 60px;
+        height: 60px;
+    }
+    .header-avatar i {
+        font-size: 30px;
+    }
+     .header h1 {
+        font-size: 20px;
+    }
+    .chat-messages {
+        max-height: 65vh; /* Allow more chat height */
+        padding-right: 5px; /* Less padding for scrollbar */
+    }
+    .jewelry-cards-in-chat {
+        /* Adjust columns for mobile */
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+    }
+     .jewelry-card-in-chat {
+          padding: 10px;
+      }
+     .jewelry-card-image {
+          width: calc(100% + 20px);
+          margin: -10px -10px 8px -10px;
+          height: 120px;
+      }
+     .jewelry-card-in-chat .jewelry-title {
+         font-size: 13px;
+     }
+      .jewelry-card-in-chat .jewelry-price {
+         font-size: 14px;
+     }
+     .jewelry-card-in-chat .view-details-btn {
+          padding: 8px 12px;
+          font-size: 13px;
+     }
+
+    /* Modal adjustments for mobile */
+    .modal-content {
+        padding: 20px;
+        width: 95%;
+        max-height: 85vh;
+    }
+     .modal-content h2 {
+         font-size: 18px;
+     }
+     .close-button {
+         font-size: 24px;
+         right: 10px;
+         top: 10px;
+     }
+     .diamond-specs-grid {
+          grid-template-columns: 1fr; /* Single column on mobile */
+     }
+    .bubble {
+        max-width: 90%; /* Allow slightly wider bubbles */
+        font-size: 13px;
+        padding: 10px 14px;
+    }
+    .input-container input[type="text"] {
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+    .send-button {
+        width: 44px;
+        height: 44px;
+    }
+  }
+
+  @media (max-width: 480px) {
+      .jewelry-cards-in-chat {
+          /* Single column on very small screens */
+          grid-template-columns: 1fr;
+      }
+       .header-avatar {
+          width: 50px;
+          height: 50px;
+      }
+      .header-avatar i {
+          font-size: 25px;
+      }
+       .header h1 {
+          font-size: 18px;
+      }
+      .subheading {
+          font-size: 12px;
+      }
+  }
+
+  /* Fix for horizontal overflow */
+  .chat-container, .modal-content, .bubble {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
