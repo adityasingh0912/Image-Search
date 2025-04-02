@@ -213,8 +213,8 @@ function handleJewelryData(responseData) {
             <img src="${imageUrl}"
                  alt="${imageAlt}"
                  class="jewelry-card-image"
-                 onerror="this.onerror=null; this.src='static/placeholder.png';"> {/* Handle image errors */}
-            <div class="jewelry-card-content"> {/* Added wrapper for content below image */}
+                 onerror="this.onerror=null; this.src='static/placeholder.png';">
+            <div class="jewelry-card-content">
                 <div class="jewelry-header">
                     <div class="jewelry-title" title="${title}">${title}</div>
                     <div class="jewelry-price">${priceFormatted}</div>
@@ -310,13 +310,13 @@ function openModalWithDetails(jewelry) {
                     <p>SKU: <strong>${sku}</strong></p>
                     <p>Company: <strong>${company}</strong></p>
                     <p>Status: <strong>${status}</strong></p>
-                    <p>Categories: <strong>${categories || 'N/A'}</strong></p> {/* Handle empty string case */}
+                    <p>Categories: <strong>${categories || 'N/A'}</strong></p>
                 </div>
 
                 ${description ? `
                     <div class="jewelry-modal-desc">
                         <strong>Description:</strong>
-                        <div>${description.replace(/\n/g, '<br>')}</div> {/* Render newlines as breaks */}
+                        <div>${description.replace(/\n/g, '<br>')}</div>
                     </div>
                 ` : ''}
              </div>
