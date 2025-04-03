@@ -54,34 +54,77 @@ ALL_CATEGORIES = list(set(STYLES_MAP.values()))
 # --- End Constants ---
 
 
-# --- [Core Functions: image_to_base64, generate_caption, create_json_from_caption - SAME AS BEFORE] ---
-def image_to_base64(image_url):
-    """Download an image and convert it to base64."""
-    try:
-        response = requests.get(image_url, timeout=10) # Added timeout
-        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-        return base64.b64encode(response.content).decode('utf-8')
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to download or access image URL: {image_url}. Error: {e}")
-        return None
-    except Exception as e:
-        print(f"Error converting image to base64: {e}")
+# --- [Core Functions: image_to_base64, generate_caption, create_json_from_caption, get_additional_keywords_with_llm, extract_inscription_from_caption - SAME AS BEFORE] ---
+def image_to_base64(image_path_or_url):
+    """
+    Fetches an image from a URL or reads from a local path,
+    and converts it to base64.
+    """
+    content = None
+    is_url = image_path_or_url.startswith('http://') or image_path_or_url.startswith('https://')
+
+    if is_url:
+        print(f"  Fetching image from URL: {image_path_or_url}")
+        try:
+            response = requests.get(image_path_or_url, timeout=15) # Slightly longer timeout
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            content = response.content
+        except requests.exceptions.Timeout:
+            print(f"  Error: Timeout while fetching image URL: {image_path_or_url}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"  Error: Failed to download or access image URL: {image_path_or_url}. Error: {e}")
+            return None
+        except Exception as e:
+            print(f"  Error: Unexpected error fetching URL {image_path_or_url}: {e}")
+            return None
+    else:
+        # Assume it's a local file path
+        print(f"  Reading image from local path: {image_path_or_url}")
+        try:
+            # Check if file exists before opening
+            if not os.path.exists(image_path_or_url):
+                 print(f"  Error: File not found at path: {image_path_or_url}")
+                 return None
+            # Open in binary read mode
+            with open(image_path_or_url, 'rb') as image_file:
+                content = image_file.read()
+        except IOError as e:
+            print(f"  Error: Could not read file at path: {image_path_or_url}. Error: {e}")
+            return None
+        except Exception as e:
+            print(f"  Error: Unexpected error reading file {image_path_or_url}: {e}")
+            return None
+
+    # Proceed with base64 encoding if content was successfully obtained
+    if content:
+        try:
+            base64_encoded = base64.b64encode(content).decode('utf-8')
+            print(f"  Successfully converted image source '{os.path.basename(image_path_or_url)}' to base64.")
+            return base64_encoded
+        except Exception as e:
+            print(f"  Error converting image content to base64: {e}")
+            return None
+    else:
+        # This case should theoretically be caught by earlier checks, but as a fallback
+        print(f"  Error: Failed to obtain image content for {image_path_or_url}")
         return None
 
-def generate_caption(image_url):
+def generate_caption(image_path_or_url): # Rename parameter for clarity
     """Send base64 image to LLaMA Vision model for captioning."""
     if not groq_client:
         print("Error: Groq client not initialized. Check API key.")
         return None
 
-    print(f"Attempting to generate caption for: {image_url}")
-    image_base64 = image_to_base64(image_url)
+    print(f"Attempting to generate caption for source: {image_path_or_url}")
+    # Call the updated image_to_base64 function
+    image_base64 = image_to_base64(image_path_or_url)
     if not image_base64:
         print("Image conversion to base64 failed.")
-        return None
+        return None # Return None if base64 conversion failed
 
-    # Updated prompt for more detail, especially inscriptions/text
-    prompt = """Describe this jewelry image concisely in one line. Highlight:
+    # Updated prompt for more detail, especially inscriptions/text (SAME AS BEFORE)
+    prompt = """Describe this jewelry image concisely in 1-2 lines. Highlight:
 1.  Color (e.g., silver, gold, rose gold).
 2.  Type (e.g., ring, pendant, earrings).
 3.  Material if obvious (e.g., metal, pearl, diamond).
@@ -89,20 +132,19 @@ def generate_caption(image_url):
 5.  Any text or specific words written/engraved on it (state the exact text if visible, e.g., 'engraved with "MAMA"'). If no text, do not mention it.
 6.  Any prominent secondary features (e.g., 'with a central diamond', 'featuring blue gemstones').
 
-Avoid generic words like 'jewelry'. Focus ONLY on the item itself, not the background."""
-
+Avoid generic words like 'jewelry'. Do NOT focus on the backgroud of the item. Only include the features that directly relate to the jewelry item itself."""
 
     try:
-        # Ensure the model name is correct and available
+        # Ensure the model name is correct and available (SAME AS BEFORE)
         response = groq_client.chat.completions.create(
-            model="llama-3.2-90b-vision-preview", # Using a capable model like llama-3.1-70b-versatile or llama-3.1-8b-instant might be sufficient
+            model="llama-3.2-90b-vision-preview",
             messages=[
                 {"role": "user", "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}} # Keep format as jpeg for simplicity unless specific need arises
                 ]}
             ],
-            max_tokens=150, # Slightly increased max_tokens
+            max_tokens=150,
             temperature=0.1
         )
 
@@ -115,7 +157,7 @@ Avoid generic words like 'jewelry'. Focus ONLY on the item itself, not the backg
         if "rate limit" in str(e).lower():
              print("Rate limit likely exceeded. Waiting before retry...")
         # Consider adding retries or specific error handling here
-        return None
+        return None # Return None on LLM error as well
 
 def create_json_from_caption(caption):
     """Use Groq's LLaMA to convert a jewelry caption into a JSON object, extracting only required info."""
@@ -128,14 +170,14 @@ def create_json_from_caption(caption):
 Given the following caption of a jewelry image, extract the following information and format it into a JSON object. Focus only on the jewelry item itself, ignoring background or irrelevant details. Extract only the most prominent and relevant features:
 
 - **jewelry_type**: Possible values: Rings, Earrings, Pendants, Bracelets, Necklaces, Charms. Determine from context (e.g., 'pendant', 'ring'). Default to 'Pendants' if unclear.
-- **material**: Identify the primary metal color or material mentioned (e.g., 'Sterling Silver', 'Yellow Gold', 'Rose Gold', 'White Gold', 'Diamond', 'Pearl'). Default to 'Sterling Silver' if only 'silver' or 'metal' is mentioned. Default to 'Yellow Gold' if only 'gold' is mentioned.
+- **material**: Identify the primary metal color or material mentioned (e.g., 'Sterling Silver', 'Yellow', 'Rose', 'Diamond', 'Pearl'). Default to 'Sterling Silver' if only 'silver' or 'metal' is mentioned. Default to 'Yellow' if only 'gold' is mentioned.
 - **design**: Identify the primary shape or theme. Keep it concise (1-2 words):
     - Use 'heart' for heart shapes.
     - Use 'floral' for flower designs.
     - Use 'initial [letter]' for single letters (e.g., 'initial p' for 'P').
     - If specific text is mentioned (like "MAMA"), use that text (lowercase, e.g., 'mama').
-    - Otherwise, provide a brief description (e.g., 'solitaire', 'geometric', 'cross'). Default to 'Abstract' if very unclear.
-- **categories**: List up to 3 relevant tags representing key features or style. Include the main design/shape. Also include specific elements like 'diamond', 'pearl', 'engraved', 'gemstone' if mentioned. Examples: ['heart', 'diamond'], ['floral', 'pearl'], ['initial p', 'personalized'], ['mama', 'engraved', 'heart'].
+    - Otherwise, provide a brief description (e.g., 'solitaire', 'geometric', 'cross', 'angel'). Default to 'Abstract' if very unclear.
+- **categories**: List up to 3 relevant tags representing key features or style. Include the main design/shape. Also include specific elements like 'diamond', 'pearl', 'engraved', 'gemstone' if mentioned. Examples: ['heart', 'diamond'], ['floral', 'pearl'], ['initial p', 'personalized'], ['mama', 'engraved', 'heart'], ['angel', 'engraved', 'text'].
 
 Provide the response STRICTLY as a JSON object only, without any introductory text or markdown formatting like ```json.
 
@@ -187,7 +229,6 @@ Caption: "{caption}"
         return None
 
 
-# --- [UPDATED FUNCTION] ---
 def get_additional_keywords_with_llm(caption, used_keywords_set):
     """
     Fallback function: Use LLM to suggest 1 additional keyword from caption,
@@ -219,7 +260,8 @@ Return ONLY the identified keyword as a single lowercase word, or return an empt
 Examples:
 - Caption: "Gold ring with intricate filigree pattern and a central ruby." Used: [gold, ring, ruby, pattern]. Output: filigree
 - Caption: "Silver pendant showing a hammered texture." Used: [silver, pendant, texture]. Output: hammered
-- Caption: "This silver-colored heart-shaped pendant features a central diamond." Used: [silver, heart, pendant, diamond]. Output: "" (no other *specific* unused feature)
+- Caption: "This silver-colored heart-shaped pendant features a central diamond." Used: [silver, heart, pendant, diamond]. Output: "diamond"
+- Caption: "A delicate bracelet with a floral design with blue gemstone." Used: [delicate, bracelet, floral]. Output: "blue"
 """
 
     try:
@@ -258,22 +300,16 @@ def extract_inscription_from_caption(caption):
     Returns a lowercase keyword/phrase (max 3 words) or empty string.
     """
     caption_lower = caption.lower()
+    print("  DEBUG: Starting inscription extraction...") # Added debug start
 
     # Priority 1: Quoted text after specific verbs/nouns, allowing intervening words
-    # Uses non-greedy matching .*? to find the *first* quote after the keyword
-    # Searches for keywords like: inscribed, engraved, word, words, text
-    # followed by potentially some words (like 'design of angels and the')
-    # then the quoted text.
     inscription_match = re.search(r'(?:inscribed|engraved|word|words|text)[\s\w]*?["\']([^"\']+)["\']', caption_lower)
     if inscription_match:
         words = inscription_match.group(1).strip().split()
-        # Return only the first few words if it's a long phrase, focus on core
-        # If it looks like a common phrase, maybe keep more? Heuristic needed.
-        # For now, keep first 3.
         keyword = " ".join(words[:3])
-        # Basic check to avoid returning overly common stop-words if they were somehow captured alone
         if keyword in ["the", "a", "is", "of", "us", "me"]:
-             return "" # Avoid returning just a stop word
+             print(f"  DEBUG: Inscription regex matched stop-word only: '{inscription_match.group(1)}', ignoring.") # Debug print
+             return ""
         print(f"  DEBUG: Inscription regex matched: '{inscription_match.group(1)}', using: '{keyword}'") # Debug print
         return keyword
 
@@ -281,267 +317,301 @@ def extract_inscription_from_caption(caption):
     initial_match = re.search(r'initial\s+([a-z])', caption_lower)
     if initial_match:
         print(f"  DEBUG: Initial regex matched: 'initial {initial_match.group(1)}'") # Debug print
-        return "initial " + initial_match.group(1) # Keep "initial" for clarity
+        return "initial " + initial_match.group(1)
 
     # Priority 3: Specific known phrases like "st. christopher"
     if "saint christopher" in caption_lower:
         print("  DEBUG: Found 'saint christopher'") # Debug print
-        return "st. christopher" # Standardize
+        return "st. christopher"
 
     # Priority 4: Fallback - Unquoted text immediately after verbs (less reliable)
-    # Try to capture 1 or 2 words following the verb
     fallback_match = re.search(r'(?:inscribed|engraved)\s+([a-z]+(?:\s+[a-z]+)?)', caption_lower)
     if fallback_match:
         potential_keyword = fallback_match.group(1).strip()
-        # Avoid generic words often following 'engraved' like 'design', 'pattern', 'text'
         if potential_keyword not in ["text", "words", "detail", "design", "pattern", "with", "on", "style"]:
             print(f"  DEBUG: Fallback regex matched: '{potential_keyword}'") # Debug print
             return potential_keyword
         else:
             print(f"  DEBUG: Fallback regex matched generic term '{potential_keyword}', ignoring.") # Debug print
 
-
     print("  DEBUG: No specific inscription pattern matched.") # Debug print
     return ""
-# --- [UPDATED FUNCTION] ---
-def search_similar_products(json_prompt, initial_caption):
-    """Searches the Brilliance Hub API based on extracted JSON criteria using a multi-pass approach."""
+
+def extract_additional_color(caption):
+    """
+    Extracts a color mentioned in the caption that is not one of the standard colors:
+    'gold', 'silver', or 'rose'. Returns the first non-standard color found,
+    or an empty string if none are found.
+    """
+    # Define standard colors (all in lowercase)
+    standard_colors = {"gold", "silver", "rose"}
+    # Define a simple list of common color names
+    common_colors = {"red", "blue", "green", "black", "purple", "pink", "orange", "brown", "gray", "grey"}
+    # Search for color words in the caption
+    colors_found = re.findall(r'\b(' + '|'.join(common_colors) + r')\b', caption.lower())
+    for color in colors_found:
+        if color not in standard_colors:
+            return color
+    return ""
+
+def search_similar_products(json_prompt, initial_caption, desired_limit=10):
+    """
+    Searches the Brilliance Hub API based on extracted JSON criteria using a multi-pass approach.
+    If the jewelry type is 'Pendants', searches both 'Pendants' and 'Necklaces'.
+    Attempts to return a specific number of results (desired_limit) by backfilling from less specific passes.
+    """
     if not json_prompt or not isinstance(json_prompt, dict):
         print("Invalid JSON prompt provided to search function.")
         return {"error": "Invalid search criteria generated.", "data": [], "total_found": 0, "source_pass": "N/A"}
     if not HEADERS:
-         print("Error: API headers not configured.")
-         return {"error": "API configuration error.", "data": [], "total_found": 0, "source_pass": "N/A"}
+        print("Error: API headers not configured.")
+        return {"error": "API configuration error.", "data": [], "total_found": 0, "source_pass": "N/A"}
 
-    # --- Extract Core Criteria ---
+    # Extract criteria from JSON prompt
     jew_type = json_prompt.get("jewelry_type", "Pendants").lower()
     design = json_prompt.get("design", "").lower().strip()
-    # Handle potential "initial x" in design - just use the letter for broader matching?
-    # design_for_filter = design.split()[-1] if design.startswith("initial ") and len(design.split()) == 2 else design
-    design_for_filter = design # Keep full design for now, can refine later
-    material = json_prompt.get("material", "Sterling Silver").lower().strip() # Defaulted to Sterling Silver as per JSON prompt
-    # Normalize material names slightly for API title search if needed
-    material_search_term = material.replace("sterling silver", "silver") # API titles might just say "Silver"
+    design_for_filter = design
+    material = json_prompt.get("material", "Sterling Silver").lower().strip()
+    material_search_term = material.replace("sterling silver", "silver")
     categories = [cat.lower().strip() for cat in json_prompt.get("categories", []) if cat]
+    generic_designs = {"engraved", "text", "personalized", "abstract", "metal", "geometric", "pattern", "solitaire", "circular", "round", "gemstone"}
 
     print(f"\n--- Starting Search ---")
+    print(f"Desired Results: {desired_limit}")
     print(f"Criteria: Type='{jew_type}', Design='{design}', Material='{material}', Categories={categories}")
-    print(f"Initial Caption: '{initial_caption}'") # Print caption for context
+    print(f"Initial Caption: '{initial_caption}'")
 
-    limit = 500 # Limit per API call
-    max_total_results = 5000 # Max results to process overall
+    limit_per_call = 500
+    max_total_results_fetch = 5000
     first_pass_results = []
     second_pass_results = []
     third_pass_results = []
-    last_successful_pass_data = [] # Store the actual data from the last successful pass
-    source_pass_name = "N/A"
-
-    # --- Pass 1: Broad API Search (Material/Color in Title + Categories in Style + Type) ---
-    # Use categories from JSON directly for style filter
-    search_style = [cat.capitalize() for cat in categories if cat]
-    # Use normalized material for title search
-    first_pass_title_term = material_search_term.capitalize()
-
-    print(f"\nPass 1: Title='{first_pass_title_term}', Style={search_style}, Type={jew_type.capitalize() if jew_type else 'Any'}")
-    offset = 0
     api_error_pass1 = False
-    total_fetched_pass1 = 0
-    while total_fetched_pass1 < max_total_results:
-        batch_limit = min(limit, max_total_results - total_fetched_pass1)
-        if batch_limit <= 0: break
-        search_body = {
-            "offset": offset, "limit": batch_limit, "title": first_pass_title_term, "style": search_style
-        }
-        # Only add type if it's specific (not 'any' or empty)
-        if jew_type and jew_type != 'any':
-            search_body["type"] = jew_type.capitalize()
 
-        print(f"  API Request (Pass 1): {search_body}")
-        try:
-            response = requests.get(API_URL, headers=HEADERS, params=search_body, timeout=20) # Increased timeout
-            print(f"  API Response Status (Pass 1): {response.status_code}")
-            response.raise_for_status()
-            results = response.json()
-            current_batch = results.get("data", [])
-            if not current_batch: # No more results
-                print("  No more items found in this batch (Pass 1).")
+    # --- Determine Search Types ---
+    if jew_type == "pendants":
+        search_types = ["Pendants", "Necklaces"]
+        print(f"Searching for both 'Pendants' and 'Necklaces' since jewelry type is 'Pendants'.")
+    else:
+        search_types = [jew_type.capitalize()]
+        print(f"Searching for '{search_types[0]}'.")
+
+    # --- Pass 1: Broad API Search Across Search Types ---
+    search_style = [cat.capitalize() for cat in categories if cat]
+    first_pass_title_term = material_search_term.capitalize()
+    added_ids = set()
+
+    for search_type in search_types:
+        print(f"Fetching results for type '{search_type}'...")
+        offset = 0
+        while len(first_pass_results) < max_total_results_fetch:
+            batch_limit = min(limit_per_call, max_total_results_fetch - len(first_pass_results))
+            if batch_limit <= 0:
                 break
-
-            first_pass_results.extend(current_batch)
-            total_fetched_pass1 += len(current_batch)
-            print(f"  Found {len(current_batch)} items in this batch (Pass 1). Total fetched: {total_fetched_pass1}")
-
-            # Stop if we received fewer items than requested (means we reached the end for this query)
-            if len(current_batch) < batch_limit:
+            search_body = {
+                "offset": offset,
+                "limit": batch_limit,
+                "title": first_pass_title_term,
+                "style": search_style,
+                "type": search_type
+            }
+            print(f"  API Request (Pass 1, Type={search_type}): {search_body}")
+            try:
+                response = requests.get(API_URL, headers=HEADERS, params=search_body, timeout=20)
+                print(f"  API Response Status (Pass 1, Type={search_type}): {response.status_code}")
+                response.raise_for_status()
+                results = response.json()
+                current_batch = results.get("data", [])
+                if not current_batch:
+                    break
+                for item in current_batch:
+                    item_id = item.get("id")
+                    if item_id and item_id not in added_ids:
+                        first_pass_results.append(item)
+                        added_ids.add(item_id)
+                        if len(first_pass_results) >= max_total_results_fetch:
+                            break
+                if len(current_batch) < batch_limit or len(first_pass_results) >= max_total_results_fetch:
+                    break
+                offset += batch_limit
+                time.sleep(0.1)
+            except requests.exceptions.Timeout:
+                print(f"  Error: Pass 1 API search timed out for type '{search_type}'. Proceeding with {len(first_pass_results)} fetched results.")
+                api_error_pass1 = True
                 break
+            except requests.RequestException as e:
+                print(f"  Error: Pass 1 API search failed for type '{search_type}': {e}")
+                api_error_pass1 = True
+                break
+            except Exception as e:
+                print(f"  Error: Unexpected error during Pass 1 for type '{search_type}': {e}")
+                api_error_pass1 = True
+                break
+    print(f"Total unique results collected from Pass 1: {len(first_pass_results)}")
 
-            offset += batch_limit # Prepare for next batch
-            time.sleep(0.1) # Small delay between batches
+    # --- Pass 2: Filter Pass 1 results by an Additional Color (if available) or by Primary Design/Specific Category ---
+    pass2_input_results = first_pass_results
+    used_filter_term_pass2 = ""
+    filter_source_pass2 = ""
 
-        except requests.exceptions.Timeout:
-            print(f"  Error: First pass API search timed out. Proceeding with fetched results.")
-            api_error_pass1 = True # Mark as partial success
-            break
-        except requests.RequestException as e:
-            print(f"  Error: First pass API search failed: {e}")
-            api_error_pass1 = True
-            break # Stop fetching on error
-        except Exception as e:
-            print(f"  Error: Unexpected error during first pass search: {e}")
-            api_error_pass1 = True
-            break # Stop fetching on unexpected error
-
-    print(f"Total results collected from Pass 1: {len(first_pass_results)}")
-    if first_pass_results:
-        last_successful_pass_data = first_pass_results
-        source_pass_name = "First Pass"
-
-       # --- Pass 2: Filter Pass 1 results by Primary Design Keyword OR Specific Category ---
-    current_results_for_filter = first_pass_results
-    if design and current_results_for_filter: # Check design is not empty
-        # Define generic design keywords that should be deprioritized for filtering
-        generic_designs = {"engraved", "text", "personalized", "abstract", "metal", "geometric", "pattern"} # Add more if needed
-
-        filter_term_pass2 = ""
-        filter_source_pass2 = ""
-
-        # Check if the main design is generic
+    # First, try to extract an additional color from the caption
+    additional_color = extract_additional_color(initial_caption)
+    if additional_color:
+        used_filter_term_pass2 = additional_color
+        filter_source_pass2 = "Additional Color"
+        print(f"\nPass 2: Using additional color '{used_filter_term_pass2}' for filtering.")
+    elif design:
+        # If design is generic, try to pick a specific category from the categories list.
         if design_for_filter in generic_designs:
-            print(f"  Primary design '{design_for_filter}' is generic. Looking for specific category...")
-            # Find the first category that is NOT generic and NOT the same as the design
+            print(f"\nPass 2: Primary design '{design_for_filter}' is generic. Looking for specific category...")
             specific_category = next((cat for cat in categories if cat not in generic_designs and cat != design_for_filter), None)
             if specific_category:
-                filter_term_pass2 = specific_category
+                used_filter_term_pass2 = specific_category
                 filter_source_pass2 = "Specific Category"
-                print(f"  Using '{filter_term_pass2}' (from Categories) for Pass 2 filter.")
+                print(f"Pass 2: Using '{used_filter_term_pass2}' (from Categories) for filtering.")
             else:
-                # Fallback to the generic design if no better category found
-                filter_term_pass2 = design_for_filter
+                used_filter_term_pass2 = design_for_filter
                 filter_source_pass2 = "Generic Design (Fallback)"
-                print(f"  No specific category found. Falling back to generic design '{filter_term_pass2}' for Pass 2 filter.")
+                print(f"Pass 2: No specific category found. Falling back to generic design '{used_filter_term_pass2}' for filtering.")
         else:
-            # Use the specific design keyword if it's not generic
-            filter_term_pass2 = design_for_filter
+            used_filter_term_pass2 = design_for_filter
             filter_source_pass2 = "Primary Design"
-            print(f"  Using primary design '{filter_term_pass2}' for Pass 2 filter.")
-
-        # Perform the filtering using filter_term_pass2
-        if filter_term_pass2:
-            print(f"\nPass 2: Filtering {len(current_results_for_filter)} items based on {filter_source_pass2} '{filter_term_pass2}' in title/desc.")
-            second_pass_results = [
-                item for item in current_results_for_filter
-                if item.get("jew_title") and filter_term_pass2 in item["jew_title"].lower()
-                # Optionally add description check:
-                # or (item.get("jew_desc") and filter_term_pass2 in item["jew_desc"].lower())
-            ]
-            print(f"  Results after Pass 2 filter: {len(second_pass_results)}")
-            if second_pass_results:
-                last_successful_pass_data = second_pass_results
-                source_pass_name = "Second Pass"
-            else:
-                print(f"  Pass 2 filter with '{filter_term_pass2}' yielded no results. Keeping Pass 1 results.")
-                second_pass_results = current_results_for_filter # Carry over Pass 1 results
-        else:
-             print("  No valid filter term determined for Pass 2. Skipping filter.")
-             second_pass_results = current_results_for_filter # Pass results through
-
+            print(f"\nPass 2: Using primary design '{used_filter_term_pass2}' for filtering.")
     else:
-        print("\nSkipping Pass 2 filter (No design keyword specified or no Pass 1 results).")
-        second_pass_results = current_results_for_filter # Pass results through
+        print("\nPass 2: No design keyword or additional color provided; skipping Pass 2 filtering.")
+        used_filter_term_pass2 = ""
 
-    # --- Pass 3: Refined Filter using Inscription, Secondary Category, or Fallback AI Keyword ---
-    # (Pass 3 logic remains largely the same, but should now receive better input from Pass 2
-    # and better inscription keyword from the updated extraction function)
-    current_results_for_filter = second_pass_results # Results to filter in this pass
-    if current_results_for_filter and initial_caption:
-        print(f"\nPass 3: Refining {len(current_results_for_filter)} items using specific features...")
-        third_pass_filter_term = ""
-        filter_source = ""
+    if used_filter_term_pass2:
+        print(f"Pass 2: Filtering {len(pass2_input_results)} items based on {filter_source_pass2} '{used_filter_term_pass2}'...")
+        second_pass_results = [
+            item for item in pass2_input_results
+            if item.get("jew_title") and used_filter_term_pass2 in item["jew_title"].lower()
+        ]
+        print(f"  Results after Pass 2 filter: {len(second_pass_results)}")
+    else:
+        second_pass_results = pass2_input_results
 
-        # 1. Check for Inscription (using updated function)
-        inscription_keyword = extract_inscription_from_caption(initial_caption)
-        if inscription_keyword:
-            # Use the extracted inscription (already limited to ~3 words)
-            third_pass_filter_term = inscription_keyword
-            filter_source = "Inscription"
-            print(f"  Using {filter_source} keyword for filtering: '{third_pass_filter_term}'")
-            # Potential refinement: if inscription has > 1 word, also try searching only the last N-1 words?
-            # E.g. "our guardian angel" -> try "guardian angel"? For now, use extracted keyword.
 
-        # 2. Check for Secondary Category (if no inscription found)
+    # --- Pass 3: Refined Filter Using a New Filter Term (avoiding Pass 2's term) ---
+    # If Pass 2 returned no results, use Pass 1 results.
+    if not second_pass_results:
+        print("No results found in Pass 2; using Pass 1 results for Pass 3 filtering.")
+        pass3_input_results = first_pass_results
+    else:
+        pass3_input_results = second_pass_results
+
+    third_pass_filter_term = ""
+    filter_source_pass3 = ""
+    if pass3_input_results and initial_caption:
+        print(f"\nPass 3: Refining {len(pass3_input_results)} items using specific features...")
+
+        # 1. Check for a non-standard color in the caption
+        color_keyword = extract_additional_color(initial_caption)
+        if color_keyword and color_keyword != used_filter_term_pass2:
+            third_pass_filter_term = color_keyword
+            filter_source_pass3 = "Non-standard Color"
+            print(f"  Using {filter_source_pass3} keyword for filtering: '{third_pass_filter_term}'")
+
+        # 2. If no valid color found, check for inscription
         if not third_pass_filter_term:
-            print(f"  No inscription found or extracted term was invalid. Checking for secondary category...")
-            # Find categories NOT matching the primary design *used in Pass 2 filter*
-            pass2_term_used = filter_term_pass2 # The term actually used in pass 2
-            secondary_categories = [
-                cat for cat in categories
-                if cat != pass2_term_used and cat not in generic_designs # Exclude generic and the one used in Pass 2
-            ]
+            inscription_keyword = extract_inscription_from_caption(initial_caption)
+            if inscription_keyword and inscription_keyword != used_filter_term_pass2:
+                third_pass_filter_term = inscription_keyword
+                filter_source_pass3 = "Inscription"
+                print(f"  Using {filter_source_pass3} keyword for filtering: '{third_pass_filter_term}'")
+
+        # 3. If still nothing, check Secondary Category (skipping term used in Pass 2)
+        if not third_pass_filter_term:
+            print("  No color or inscription found/valid. Checking secondary category...")
+            secondary_categories = [cat for cat in categories if cat != used_filter_term_pass2 and cat not in generic_designs]
             if secondary_categories:
-                priority_cats = [cat for cat in secondary_categories if cat in ['diamond', 'pearl', 'gemstone', 'cz', 'cubic zirconia']]
-                if priority_cats:
-                   third_pass_filter_term = priority_cats[0]
-                else:
-                    third_pass_filter_term = secondary_categories[0] # Use the first non-generic, non-pass2 term
-                filter_source = "Secondary Category"
-                print(f"  Using {filter_source} keyword for filtering: '{third_pass_filter_term}'")
+                third_pass_filter_term = secondary_categories[0]
+                filter_source_pass3 = "Secondary Category"
+                print(f"  Using {filter_source_pass3} keyword for filtering: '{third_pass_filter_term}'")
             else:
                 print("  No suitable secondary category found.")
 
-
-        # 3. Fallback to LLM Suggestion (if nothing found yet)
+        # 4. Fallback to LLM if still no filter term
         if not third_pass_filter_term:
-            print("  No inscription or distinct secondary category suitable for Pass 3. Trying LLM fallback...")
-            # (LLM fallback logic remains the same)
-            # ... rest of LLM fallback code ...
+            print("  No specific filter term found. Trying LLM fallback...")
+            used_keywords = set([c.lower() for c in categories if c] +
+                                [d.lower() for d in design.split() if d] +
+                                [material.lower(), jew_type.lower(), material_search_term.lower()] +
+                                [used_filter_term_pass2])
+            common_words_for_ai = {
+                "a", "an", "the", "this", "that", "these", "those", "and", "or", "but", "of", "with", "for", "on", "at", "its",
+                "to", "from", "by", "as", "it", "is", "are", "was", "were", "be", "been", "has", "have", "had", "no",
+                "in", "out", "up", "down", "image", "photo", "picture", "view", "background", "surface", "display",
+                "features", "shaped", "style", "design", "pattern", "piece", "item", "accessory", "jewelry", "wearable",
+                "made", "set", "against", "shown", "engraved", "center"
+            }
+            full_exclusion_set = used_keywords.union(common_words_for_ai)
+            llm_keyword = get_additional_keywords_with_llm(initial_caption, full_exclusion_set)
+            if llm_keyword and llm_keyword != used_filter_term_pass2:
+                third_pass_filter_term = llm_keyword
+                filter_source_pass3 = "AI Fallback"
+                print(f"  Using {filter_source_pass3} keyword for filtering: '{third_pass_filter_term}'")
 
-        # Apply the filter if a term was found
-        if third_pass_filter_term:
-             print(f"  Applying Pass 3 filter ({filter_source}): '{third_pass_filter_term}'")
-             # Apply filter (check title first, maybe description as fallback)
-             third_pass_results = [
-                item for item in current_results_for_filter
-                if item.get("jew_title") and third_pass_filter_term in item["jew_title"].lower()
-                 # Optionally add description check:
-                 # or (item.get("jew_desc") and third_pass_filter_term in item["jew_desc"].lower())
-            ]
-             # **** ADDED LOGIC: If exact phrase fails, try core words ****
-             if not third_pass_results and filter_source == "Inscription" and len(third_pass_filter_term.split()) > 1:
-                 core_terms = third_pass_filter_term.split()[1:] # Try without the first word (e.g., "guardian angel" from "our guardian angel")
-                 core_term_filter = " ".join(core_terms)
-                 if core_term_filter and core_term_filter != third_pass_filter_term: # Ensure it's different and not empty
-                     print(f"  Initial Pass 3 filter failed. Retrying with core inscription term: '{core_term_filter}'")
-                     third_pass_results = [
-                         item for item in current_results_for_filter
-                         if item.get("jew_title") and core_term_filter in item["jew_title"].lower()
-                     ]
-
-             print(f"  Results after Pass 3 ({filter_source}) filter: {len(third_pass_results)}")
-             if third_pass_results:
-                 last_successful_pass_data = third_pass_results
-                 source_pass_name = "Third Pass"
-             else:
-                 print(f"  Pass 3 filter with '{third_pass_filter_term}' (and potential core terms) yielded no matches. Reverting to previous results.")
-                 third_pass_results = current_results_for_filter # Carry over
+        # Final check: if the term for Pass 3 is identical to Pass 2's term, skip Pass 3 filtering.
+        if third_pass_filter_term == used_filter_term_pass2:
+            print(f"  Pass 3 filter term '{third_pass_filter_term}' is identical to Pass 2 filter term; skipping Pass 3 filtering.")
+            third_pass_results = pass3_input_results
         else:
-            print("  No specific filter term found for Pass 3. Skipping filter.")
-            third_pass_results = current_results_for_filter # Pass results through
-
+            if third_pass_filter_term:
+                print(f"  Applying Pass 3 filter ({filter_source_pass3}): '{third_pass_filter_term}'")
+                temp_results = [
+                    item for item in pass3_input_results
+                    if item.get("jew_title") and third_pass_filter_term in item["jew_title"].lower()
+                ]
+                third_pass_results = temp_results
+                print(f"  Results after Pass 3 ({filter_source_pass3}) filter: {len(third_pass_results)}")
+            else:
+                print("  No specific filter term found for Pass 3. Skipping filter.")
+                third_pass_results = pass3_input_results
     else:
          print("\nSkipping Pass 3 refinement (No previous results or no caption).")
-         third_pass_results = current_results_for_filter # Pass results through
+         third_pass_results = pass3_input_results
 
-    # --- Final Results Selection ---
+    # --- Final Results Combination and Selection ---
+    print("\n--- Combining and Selecting Final Results ---")
+    combined_results = []
+    added_ids = set()
+    source_pass_name = "None"
+    total_found_before_limit_primary = 0
 
-    # --- Final Results Selection ---
+    def add_unique(items_list, limit):
+        count_added = 0
+        for item in items_list:
+            item_id = item.get("id")
+            if item_id and item_id not in added_ids and len(combined_results) < limit:
+                combined_results.append(item)
+                added_ids.add(item_id)
+                count_added += 1
+        return count_added
+
+    if third_pass_results:
+        print(f"Adding up to {desired_limit - len(combined_results)} from Pass 3 ({len(third_pass_results)} available)...")
+        add_unique(third_pass_results, desired_limit)
+        source_pass_name = "Third Pass"
+        total_found_before_limit_primary = len(third_pass_results)
+    if len(combined_results) < desired_limit and second_pass_results:
+        print(f"Adding up to {desired_limit - len(combined_results)} from Pass 2 ({len(second_pass_results)} available)...")
+        added_count = add_unique(second_pass_results, desired_limit)
+        if added_count > 0 and source_pass_name == "None":
+            source_pass_name = "Second Pass"
+            total_found_before_limit_primary = len(second_pass_results)
+    if len(combined_results) < desired_limit and first_pass_results:
+        print(f"Adding up to {desired_limit - len(combined_results)} from Pass 1 ({len(first_pass_results)} available)...")
+        added_count = add_unique(first_pass_results, desired_limit)
+        if added_count > 0 and source_pass_name == "None":
+            source_pass_name = "First Pass"
+            total_found_before_limit_primary = len(first_pass_results)
+
     print("\n--- Final Search Summary ---")
-    # Use the data from the latest pass that yielded results (stored in last_successful_pass_data)
-    final_results_data = last_successful_pass_data[:4] # Return top 4
-
-    if final_results_data:
-         print(f"Using results from {source_pass_name}. Found {len(last_successful_pass_data)}, returning top {len(final_results_data)}.")
+    if combined_results:
+         print(f"Returning {len(combined_results)} combined results (Desired: {desired_limit}).")
+         print(f"Primary source pass contributing results: {source_pass_name} (found {total_found_before_limit_primary} items before combining).")
     else:
-         # Handle cases where even Pass 1 failed or returned nothing
          if api_error_pass1 and not first_pass_results:
              print("Search failed due to API error in the first pass and no results were fetched.")
              return {"error": "Failed to retrieve initial search results from API.", "data": [], "total_found": 0, "source_pass": "N/A"}
@@ -549,41 +619,29 @@ def search_similar_products(json_prompt, initial_caption):
               print("No products found matching the initial criteria in Pass 1.")
               return {"data": [], "total_found": 0, "source_pass": "None"}
          else:
-              # This case means Pass 1 worked, but subsequent filters removed everything.
-              print("Filters in Pass 2 or 3 removed all results. No similar products found matching all criteria.")
-              # Optionally, return Pass 1 results here as a fallback?
-              # final_results_data = first_pass_results[:4]
-              # source_pass_name = "First Pass (Fallback)"
-              # print(f"Falling back to results from {source_pass_name}. Found {len(first_pass_results)}, returning top {len(final_results_data)}.")
-              # If strict filtering is desired, return empty:
-              return {"data": [], "total_found": 0, "source_pass": source_pass_name} # source_pass reflects the last *attempted* filter stage
+              print("No products found matching any criteria across all passes.")
+              return {"data": [], "total_found": 0, "source_pass": source_pass_name if source_pass_name != "None" else "Filters Failed"}
 
-
-    print(f"Source of final results: {source_pass_name}")
-    print(f"Number of items in final_results_data: {len(final_results_data)}")
+    print(f"Source Pass indicated: {source_pass_name}")
+    print(f"Number of items in final_results_data: {len(combined_results)}")
 
     final_results = {
-        "data": final_results_data,
-        "total_found": len(final_results_data), # Report the number returned
+        "data": combined_results,
+        "total_found": len(combined_results),
         "source_pass": source_pass_name,
-        # Optionally include total found before limiting to 4
-        "total_found_before_limit": len(last_successful_pass_data)
+        "total_found_by_primary_source": total_found_before_limit_primary
     }
     return final_results
 
-
-# --- [Example Usage (_main_ block) - SAME AS BEFORE] ---
+# --- [Example Usage (_main_ block)] ---
 if __name__ == "__main__":
     print("Running test4.py directly...")
 
     if not groq_client or not HEADERS:
          print("Exiting due to missing Groq client or API configuration.")
     else:
-        # Default URL for faster testing, uncomment input for interactive use
-        # image_url = "https://www.overnightmountings.com/gemfind/library/Images_And_Videos/30925/30925.jpg"
-        # image_url = "https://meteor.stullercloud.com/das/119159229?$xlarge$"
         image_url = input("Enter image URL to test: ")
-
+        desired_num_results = 10 # Set your desired number of results here
 
         if image_url:
             print("\nStep 1: Generating Caption...")
@@ -591,34 +649,34 @@ if __name__ == "__main__":
             test_caption = generate_caption(image_url)
             print(f"Caption generation time: {time.time() - start_time:.2f}s")
 
-
             if test_caption:
                 print("\nStep 2: Creating JSON from Caption...")
                 start_time = time.time()
                 test_json = create_json_from_caption(test_caption)
                 print(f"JSON creation time: {time.time() - start_time:.2f}s")
 
-
                 if test_json:
                     print("\nStep 3: Searching for Similar Products...")
                     start_time = time.time()
-                    # Pass the original caption to the search function
-                    test_results = search_similar_products(test_json, test_caption)
+                    # Pass the desired limit to the search function
+                    test_results = search_similar_products(test_json, initial_caption=test_caption, desired_limit=desired_num_results)
                     print(f"Search time: {time.time() - start_time:.2f}s")
 
-
                     print("\n--- Final Test Results ---")
-                    if test_results:
-                        # Print total found before limit if available
-                        total_before_limit = test_results.get('total_found_before_limit')
-                        if total_before_limit is not None:
-                            print(f"Total items found by '{test_results.get('source_pass', 'N/A')}': {total_before_limit}")
+                    if test_results and "error" not in test_results:
+                        # Print total found by the primary source if available
+                        total_primary = test_results.get('total_found_by_primary_source')
+                        source_p = test_results.get('source_pass', 'N/A')
+                        if total_primary is not None and source_p != "None":
+                             print(f"Total items found by primary source '{source_p}': {total_primary}")
 
                         print(json.dumps(test_results, indent=4))
-                        print(f"Total items returned: {test_results.get('total_found', 0)}")
-                        print(f"Source Pass: {test_results.get('source_pass', 'N/A')}")
+                        print(f"\nTotal items returned: {test_results.get('total_found', 0)} (aimed for {desired_num_results})")
+                        print(f"Primary Source Pass: {source_p}")
+                    elif test_results and "error" in test_results:
+                         print(f"Search Error: {test_results['error']}")
                     else:
-                        print("Search function returned None or an error structure.")
+                        print("Search function returned None or an unexpected structure.")
                 else:
                     print("\nFailed to create JSON prompt.")
             else:
